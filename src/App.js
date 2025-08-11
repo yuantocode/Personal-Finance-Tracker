@@ -15,7 +15,14 @@ import "./App.css";
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 
 function formatCurrency(v) {
-  return "$" + v.toFixed(2);
+  return "₱" + v.toFixed(2);
+}
+
+
+function formatMonthLabel(ym) {
+  if (!ym) return "";
+  const [year, month] = ym.split("-");
+  return new Date(year, month - 1).toLocaleString("default", { month: "long", year: "numeric" });
 }
 
 function App() {
@@ -29,11 +36,17 @@ function App() {
   const [type, setType] = useState("Income");
   const [category, setCategory] = useState("General");
   const [date, setDate] = useState("");
-  const [filterMonth, setFilterMonth] = useState("");
+  const [filterMonth, setFilterMonth] = useState(() => {
+    return localStorage.getItem("filterMonth") || "";
+  });
 
   useEffect(() => {
     localStorage.setItem("transactions", JSON.stringify(transactions));
   }, [transactions]);
+
+  useEffect(() => {
+    localStorage.setItem("filterMonth", filterMonth);
+  }, [filterMonth]);
 
   const addTransaction = (e) => {
     e.preventDefault();
@@ -50,7 +63,6 @@ function App() {
     };
 
     setTransactions([newTransaction, ...transactions]);
-    // reset small form
     setText("");
     setAmount("");
     setCategory("General");
@@ -62,17 +74,22 @@ function App() {
     setTransactions(transactions.filter((t) => t.id !== id));
   };
 
-  // Filter transactions by month (format YYYY-MM) if set
+  // Filter transactions by month using Date objects
   const filteredTransactions = filterMonth
-    ? transactions.filter((t) => t.date.startsWith(filterMonth))
+    ? transactions.filter((t) => {
+        const txDate = new Date(t.date);
+        const [year, month] = filterMonth.split("-");
+        return (
+          txDate.getFullYear() === parseInt(year) &&
+          txDate.getMonth() + 1 === parseInt(month)
+        );
+      })
     : transactions;
 
-  // Summary numbers (from filtered set)
   const income = filteredTransactions.filter((t) => t.amount > 0).reduce((acc, t) => acc + t.amount, 0);
   const expenses = filteredTransactions.filter((t) => t.amount < 0).reduce((acc, t) => acc + t.amount, 0);
   const balance = income + expenses;
 
-  // Bar chart (compact)
   const barChartData = {
     labels: filteredTransactions.map((t, idx) => `${t.text}`.slice(0, 12) || `T${idx}`),
     datasets: [
@@ -91,7 +108,6 @@ function App() {
     ],
   };
 
-  // Pie chart: expenses by category (filtered)
   const expenseTx = filteredTransactions.filter((t) => t.amount < 0);
   const categories = [...new Set(expenseTx.map((t) => t.category))];
   const palette = ["#f87171", "#fb923c", "#facc15", "#4ade80", "#60a5fa", "#a78bfa", "#f472b6", "#c084fc"];
@@ -107,7 +123,6 @@ function App() {
     ],
   };
 
-  // Chart options (compact)
   const commonChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -128,10 +143,9 @@ function App() {
 
   return (
     <div className="app-container">
-      {/* Header */}
       <header className="header">
         <h1>💰 Finance Dashboard</h1>
-        <div className="header-controls">
+        <div className={`header-controls ${filterMonth ? "active" : ""}`}>
           <label className="month-label">Month</label>
           <input
             className="month-input"
@@ -141,14 +155,20 @@ function App() {
             aria-label="Filter month"
           />
           {filterMonth && (
-            <button className="clear-btn" onClick={() => setFilterMonth("")} title="Clear month filter">
-              Clear
-            </button>
+            <>
+              <span className="active-month">{formatMonthLabel(filterMonth)}</span>
+              <button
+                className="clear-btn"
+                onClick={() => setFilterMonth("")}
+                title="Clear month filter"
+              >
+                Clear
+              </button>
+            </>
           )}
         </div>
       </header>
 
-      {/* Summary cards */}
       <section className="summary-cards">
         <div className="card small-card">
           <div className="card-title">Income</div>
@@ -164,7 +184,6 @@ function App() {
         </div>
       </section>
 
-      {/* Charts row */}
       <section className="dashboard-charts" aria-label="charts">
         <div className="chart-box">
           <div className="chart-header">Overview</div>
@@ -172,7 +191,7 @@ function App() {
             {filteredTransactions.length > 0 ? (
               <Bar data={barChartData} options={commonChartOptions} />
             ) : (
-              <div className="no-data">No transactions to show</div>
+              <div className="no-data">📉 No transactions to show</div>
             )}
           </div>
         </div>
@@ -183,13 +202,12 @@ function App() {
             {categories.length > 0 ? (
               <Pie data={pieChartData} options={commonChartOptions} />
             ) : (
-              <div className="no-data">No expenses to show</div>
+              <div className="no-data">💸 No expenses to show</div>
             )}
           </div>
         </div>
       </section>
 
-      {/* Transactions row (form + list) */}
       <section className="transactions-section">
         <form className="transaction-form" onSubmit={addTransaction}>
           <div className="form-top">
@@ -235,7 +253,13 @@ function App() {
             </select>
           </div>
 
-          <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+          <input
+            className="input"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            required
+          />
 
           <div className="form-actions">
             <button className="add-btn" type="submit">

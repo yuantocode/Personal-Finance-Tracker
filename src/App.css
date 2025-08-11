@@ -1,4 +1,4 @@
-/* Basic reset */
+/* Reset & Base */
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; }
 body {
@@ -9,7 +9,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Container fits viewport height so desktop shows all without scrolling */
 .app-container {
   max-width: 1200px;
   margin: 0 auto;
@@ -34,37 +33,56 @@ body {
   font-weight: 600;
 }
 
-/* header controls: month filter */
+/* Month filter */
 .header-controls {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-
+.header-controls.active {
+  background: #f9fafb;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+.active-month {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #2563eb;
+}
 .month-label { font-size: 0.85rem; color: #6b7280; }
 .month-input {
   padding: 6px 8px;
   border-radius: 6px;
   border: 1px solid #d1d5db;
   font-size: 0.9rem;
+  background-color: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.month-input:hover {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
 }
 .clear-btn {
   background: #ef4444;
   color: white;
   border: none;
-  padding: 6px 8px;
+  padding: 6px 10px;
   border-radius: 6px;
   cursor: pointer;
   font-size: 0.85rem;
+  transition: background 0.2s ease;
+}
+.clear-btn:hover {
+  background: #dc2626;
 }
 
-/* Summary cards row */
+/* Summary cards */
 .summary-cards {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
-
 .card {
   background: #fff;
   border-radius: 10px;
@@ -74,24 +92,25 @@ body {
   flex-direction: column;
   justify-content: center;
   align-items: start;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
-
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 14px rgba(15, 23, 42, 0.08);
+}
 .small-card .card-title { font-size: 0.85rem; color: #6b7280; margin-bottom: 6px; }
 .card-value { font-weight: 700; font-size: 1.05rem; }
-
 .income-val { color: #10b981; }
 .expenses-val { color: #ef4444; }
 .balance-val { color: #2563eb; }
 
-/* Charts row: side-by-side on desktop */
+/* Charts */
 .dashboard-charts {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
-  height: 220px; /* compact */
+  height: 220px;
 }
-
-/* Each chart box */
 .chart-box {
   background: #fff;
   border-radius: 10px;
@@ -102,30 +121,27 @@ body {
   gap: 6px;
   overflow: hidden;
 }
-
 .chart-header { font-size: 0.95rem; color: #374151; margin-bottom: 4px; }
-.chart-wrapper {
-  flex: 1;
-  min-height: 0; /* allow children to control its height */
-  position: relative;
-}
-
-/* When ChartJS is rendered with maintainAspectRatio: false,
-   it will fill the wrapping container. Make container full height */
+.chart-wrapper { flex: 1; min-height: 0; position: relative; }
 .chart-wrapper > canvas {
   width: 100% !important;
   height: 100% !important;
 }
+.no-data {
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.9rem;
+  padding: 20px;
+  font-style: italic;
+}
 
-/* Transactions row: form + list */
+/* Transactions */
 .transactions-section {
   display: grid;
   grid-template-columns: 360px 1fr;
   gap: 8px;
-  height: calc(100vh - 340px); /* keep everything on screen */
+  height: calc(100vh - 340px);
 }
-
-/* Form (left) */
 .transaction-form {
   background: #fff;
   border-radius: 10px;
@@ -134,13 +150,10 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-width: 0;
 }
-
 .form-top { display:flex; justify-content:space-between; align-items:center; }
 .form-title { margin: 0; font-size: 1rem; }
 .small-hint { font-size:0.8rem; color:#6b7280; }
-
 .input, .select {
   width: 100%;
   padding: 8px;
@@ -148,12 +161,7 @@ body {
   border: 1px solid #e5e7eb;
   font-size: 0.95rem;
 }
-
-.row-two {
-  display: flex;
-  gap: 8px;
-}
-
+.row-two { display: flex; gap: 8px; }
 .add-btn {
   background: #2563eb;
   color: white;
@@ -162,7 +170,9 @@ body {
   border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
+  transition: background 0.2s ease;
 }
+.add-btn:hover { background: #1e40af; }
 .clear-all {
   background: transparent;
   color: #ef4444;
@@ -171,18 +181,17 @@ body {
   border-radius: 8px;
   cursor: pointer;
 }
+.clear-all:hover { background: #fee2e2; }
 
-/* Transaction list (right) */
+/* Transaction list */
 .transaction-list {
   background: #fff;
   border-radius: 10px;
   padding: 10px;
   box-shadow: 0 6px 12px rgba(15, 23, 42, 0.04);
-  min-width: 0;
   display: flex;
   flex-direction: column;
 }
-
 .list-header {
   display: flex;
   justify-content: space-between;
@@ -191,16 +200,13 @@ body {
 }
 .list-header h3 { margin: 0; font-size: 1rem; }
 .list-meta { font-size: 0.85rem; color: #6b7280; }
-
 .transaction-list ul {
   list-style: none;
   padding: 0;
   margin: 0;
   overflow-y: auto;
-  /* Keep list scroll inside its box, so page doesn't scroll */
   max-height: 100%;
 }
-
 .transaction-row {
   display: flex;
   justify-content: space-between;
@@ -210,16 +216,15 @@ body {
   align-items: center;
   border: 1px solid #f3f4f6;
   margin-bottom: 6px;
+  transition: background 0.15s ease;
 }
-
+.transaction-row:hover { background: #f9fafb; }
 .tx-left { display:flex; flex-direction: column; gap:4px; min-width:0; }
 .tx-title { font-weight:600; font-size:0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px; }
 .tx-meta { font-size:0.8rem; color:#6b7280; display:flex; gap:6px; align-items:center; }
-
 .tx-right { display:flex; align-items:center; gap:8px; }
 .tx-amount.pos { color: #065f46; font-weight:700; }
 .tx-amount.neg { color: #7f1d1d; font-weight:700; }
-
 .del-btn {
   border: none;
   background: transparent;
@@ -227,8 +232,9 @@ body {
   cursor: pointer;
   font-size: 1rem;
 }
+.del-btn:hover { color: #b91c1c; }
 
-/* Compact on small screens: stack everything and allow vertical scroll */
+/* Responsive */
 @media (max-width: 900px) {
   .summary-cards { grid-template-columns: repeat(3, 1fr); }
   .dashboard-charts { grid-template-columns: 1fr; height: 220px; }
@@ -237,10 +243,8 @@ body {
     height: auto;
     row-gap: 8px;
   }
-  .transactions-section .transaction-list ul { max-height: 260px; } /* allow some scroll */
+  .transactions-section .transaction-list ul { max-height: 260px; }
 }
-
-/* Very small screens */
 @media (max-width: 420px) {
   .summary-cards { grid-template-columns: 1fr; }
   .header h1 { font-size: 1rem; }
