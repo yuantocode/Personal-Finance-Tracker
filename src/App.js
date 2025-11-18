@@ -18,7 +18,6 @@ function formatCurrency(v) {
   return "₱" + v.toFixed(2);
 }
 
-
 function formatMonthLabel(ym) {
   if (!ym) return "";
   const [year, month] = ym.split("-");
@@ -26,6 +25,7 @@ function formatMonthLabel(ym) {
 }
 
 function App() {
+  // --- existing state & logic (kept intact) ---
   const [transactions, setTransactions] = useState(() => {
     const saved = localStorage.getItem("transactions");
     return saved ? JSON.parse(saved) : [];
@@ -140,32 +140,94 @@ function App() {
       },
     },
   };
+  // --- end existing logic ---
+
+  // ----------------------
+  // Dark mode (senior-friendly) UI additions
+  // ----------------------
+  // keep a large, explicit toggle and persist to localStorage
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem("finance_dark_mode");
+    return saved ? JSON.parse(saved) : false;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("finance_dark_mode", JSON.stringify(darkMode));
+    // Add class to document root to allow CSS root variable toggles
+    if (darkMode) document.documentElement.classList.add("dark");
+    else document.documentElement.classList.remove("dark");
+  }, [darkMode]);
+
+  // Chart options adjusted for dark / light mode for better contrast
+  const chartOptions = {
+    ...commonChartOptions,
+    plugins: {
+      ...commonChartOptions.plugins,
+      legend: {
+        ...commonChartOptions.plugins.legend,
+        labels: {
+          color: darkMode ? "#e6eef8" : "#111827",
+          font: { size: 12 },
+        },
+      },
+    },
+    scales: {
+      x: {
+        ticks: { color: darkMode ? "#e6eef8" : "#374151", font: { size: 12 } },
+        grid: { color: darkMode ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.04)" },
+      },
+      y: {
+        ticks: { color: darkMode ? "#e6eef8" : "#374151", font: { size: 12 } },
+        grid: { color: darkMode ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.04)" },
+      },
+    },
+  };
 
   return (
-    <div className="app-container">
+    <div className="app-container modern-cards" aria-live="polite">
       <header className="header">
-        <h1>💰 Finance Dashboard</h1>
-        <div className={`header-controls ${filterMonth ? "active" : ""}`}>
-          <label className="month-label">Month</label>
-          <input
-            className="month-input"
-            type="month"
-            value={filterMonth}
-            onChange={(e) => setFilterMonth(e.target.value)}
-            aria-label="Filter month"
-          />
-          {filterMonth && (
-            <>
-              <span className="active-month">{formatMonthLabel(filterMonth)}</span>
-              <button
-                className="clear-btn"
-                onClick={() => setFilterMonth("")}
-                title="Clear month filter"
-              >
-                Clear
-              </button>
-            </>
-          )}
+        <div className="header-left">
+          <h1 className="brand">💰 Finance Dashboard</h1>
+          
+        </div>
+
+        <div className="header-right">
+          <div className={`header-controls ${filterMonth ? "active" : ""}`}>
+            <label className="month-label">Month</label>
+            <input
+              className="month-input"
+              type="month"
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(e.target.value)}
+              aria-label="Filter month"
+            />
+            {filterMonth && (
+              <>
+                <span className="active-month">{formatMonthLabel(filterMonth)}</span>
+                <button
+                  className="clear-btn"
+                  onClick={() => setFilterMonth("")}
+                  title="Clear month filter"
+                >
+                  Clear
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Senior-friendly Dark Mode toggle */}
+          <div className="dark-toggle">
+            <label className="dm-label">Dark mode</label>
+            <button
+              className={`dm-button ${darkMode ? "on" : "off"}`}
+              onClick={() => setDarkMode((s) => !s)}
+              aria-pressed={darkMode}
+              aria-label={`Turn dark mode ${darkMode ? "off" : "on"}`}
+            >
+              <span className="dm-knob" />
+              <span className="dm-text">{darkMode ? "ON" : "OFF"}</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -189,7 +251,7 @@ function App() {
           <div className="chart-header">Overview</div>
           <div className="chart-wrapper">
             {filteredTransactions.length > 0 ? (
-              <Bar data={barChartData} options={commonChartOptions} />
+              <Bar data={barChartData} options={chartOptions} />
             ) : (
               <div className="no-data">📉 No transactions to show</div>
             )}
@@ -200,7 +262,7 @@ function App() {
           <div className="chart-header">Expenses by Category</div>
           <div className="chart-wrapper">
             {categories.length > 0 ? (
-              <Pie data={pieChartData} options={commonChartOptions} />
+              <Pie data={pieChartData} options={chartOptions} />
             ) : (
               <div className="no-data">💸 No expenses to show</div>
             )}
@@ -222,6 +284,7 @@ function App() {
             value={text}
             onChange={(e) => setText(e.target.value)}
             required
+            aria-label="Description"
           />
 
           <input
@@ -233,15 +296,16 @@ function App() {
             required
             min="0"
             step="0.01"
+            aria-label="Amount"
           />
 
           <div className="row-two">
-            <select className="select" value={type} onChange={(e) => setType(e.target.value)}>
+            <select className="select" value={type} onChange={(e) => setType(e.target.value)} aria-label="Type">
               <option>Income</option>
               <option>Expense</option>
             </select>
 
-            <select className="select" value={category} onChange={(e) => setCategory(e.target.value)}>
+            <select className="select" value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Category">
               <option>General</option>
               <option>Salary</option>
               <option>Food</option>
@@ -259,10 +323,11 @@ function App() {
             value={date}
             onChange={(e) => setDate(e.target.value)}
             required
+            aria-label="Date"
           />
 
           <div className="form-actions">
-            <button className="add-btn" type="submit">
+            <button className="add-btn" type="submit" aria-label="Add transaction">
               Add
             </button>
             <button
@@ -273,13 +338,14 @@ function App() {
                   setTransactions([]);
                 }
               }}
+              aria-label="Clear all transactions"
             >
               Clear All
             </button>
           </div>
         </form>
 
-        <div className="transaction-list">
+        <div className="transaction-list" aria-live="polite">
           <div className="list-header">
             <h3>History</h3>
             <div className="list-meta">{filteredTransactions.length} items</div>
@@ -302,7 +368,7 @@ function App() {
                     {t.amount >= 0 ? "+" : "-"}
                     {formatCurrency(Math.abs(t.amount))}
                   </div>
-                  <button className="del-btn" onClick={() => deleteTransaction(t.id)} title="Delete transaction">
+                  <button className="del-btn" onClick={() => deleteTransaction(t.id)} title="Delete transaction" aria-label={`Delete ${t.text}`}>
                     ✖
                   </button>
                 </div>
