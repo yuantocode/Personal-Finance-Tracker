@@ -144,7 +144,7 @@ function App() {
   return (
     <div className="app-container">
       <header className="header">
-        <h1>💰 Finance Dashboardasdfasf</h1>
+        <h1>💰 Finance Dashboard</h1>
         <div className={`header-controls ${filterMonth ? "active" : ""}`}>
           <label className="month-label">Month</label>
           <input
