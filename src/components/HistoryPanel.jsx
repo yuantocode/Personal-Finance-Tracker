@@ -141,7 +141,8 @@ export default function HistoryPanel({ visible, transactions, onDelete }) {
     return filteredList.slice(start, start + itemsPerPage);
   }, [filteredList, page, itemsPerPage]);
 
-  const startItem = filteredList.length === 0 ? 0 : (page - 1) * itemsPerPage + 1;
+  const startItem =
+    filteredList.length === 0 ? 0 : (page - 1) * itemsPerPage + 1;
   const endItem = Math.min(page * itemsPerPage, filteredList.length);
 
   return (
@@ -306,7 +307,11 @@ export default function HistoryPanel({ visible, transactions, onDelete }) {
 
                 <div className="tx-meta">
                   <span className="pill">{t.category || "General"}</span>
-                  <span className={`type-pill ${t.amount >= 0 ? "income" : "expense"}`}>
+                  <span
+                    className={`type-pill ${
+                      t.amount >= 0 ? "income" : "expense"
+                    }`}
+                  >
                     {t.amount >= 0 ? "Income" : "Expense"}
                   </span>
                 </div>
