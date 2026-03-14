@@ -1,253 +1,358 @@
-import React, { useMemo, useState, useEffect } from "react";
-import { formatCurrency } from "../utils/format";
-import { todayISO } from "../utils/date";
+import React, { useEffect, useMemo, useState } from "react";
 
-function typeOf(amount) {
-  return amount >= 0 ? "Income" : "Expense";
+function formatCurrency(value) {
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "PHP",
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
-function addDaysISO(isoDate, deltaDays) {
-  const d = new Date(isoDate);
-  d.setDate(d.getDate() + deltaDays);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+function formatDate(value) {
+  if (!value) return "No date";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function isToday(dateString) {
+  const d = new Date(dateString);
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+}
+
+function isYesterday(dateString) {
+  const d = new Date(dateString);
+  const y = new Date();
+  y.setDate(y.getDate() - 1);
+  return (
+    d.getFullYear() === y.getFullYear() &&
+    d.getMonth() === y.getMonth() &&
+    d.getDate() === y.getDate()
+  );
 }
 
 export default function HistoryPanel({ visible, transactions, onDelete }) {
-  // Day view
-  const [dayMode, setDayMode] = useState("today"); // today | yesterday | pick
-  const [pickedDate, setPickedDate] = useState(todayISO());
-
-  // Filters
-  const [query, setQuery] = useState("");
+  const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("All");
   const [categoryFilter, setCategoryFilter] = useState("All");
-  const [sort, setSort] = useState("dateDesc");
-
-  // Pagination
-  const [pageSize, setPageSize] = useState(10);
+  const [sortBy, setSortBy] = useState("newest");
+  const [dayFilter, setDayFilter] = useState("all");
   const [page, setPage] = useState(1);
 
-  const activeDate = useMemo(() => {
-    const t = todayISO();
-    if (dayMode === "today") return t;
-    if (dayMode === "yesterday") return addDaysISO(t, -1);
-    return pickedDate || t;
-  }, [dayMode, pickedDate]);
+  const itemsPerPageDesktop = 10;
+  const itemsPerPageMobile = 6;
 
   const categories = useMemo(() => {
-    const set = new Set(transactions.map((t) => t.category));
-    return ["All", ...Array.from(set).sort()];
+    const values = Array.from(
+      new Set(
+        transactions
+          .map((t) => (t.category || "General").trim())
+          .filter(Boolean)
+      )
+    );
+    return values.sort((a, b) => a.localeCompare(b));
   }, [transactions]);
 
-  // Reset to page 1 when filters/date change
-  useEffect(() => {
-    setPage(1);
-  }, [activeDate, query, typeFilter, categoryFilter, sort, pageSize]);
+  const filteredList = useMemo(() => {
+    let list = [...transactions];
+    const q = search.trim().toLowerCase();
 
-  const filteredRows = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    if (q) {
+      list = list.filter((t) => {
+        const text = (t.text || "").toLowerCase();
+        const category = (t.category || "").toLowerCase();
+        const amount = String(t.amount ?? "");
+        const date = String(t.date ?? "").toLowerCase();
 
-    let list = transactions.filter((t) => {
-      // Only show selected date (day view)
-      if ((t.date || "") !== activeDate) return false;
+        return (
+          text.includes(q) ||
+          category.includes(q) ||
+          amount.includes(q) ||
+          date.includes(q)
+        );
+      });
+    }
 
-      if (typeFilter !== "All" && typeOf(t.amount) !== typeFilter) return false;
-      if (categoryFilter !== "All" && t.category !== categoryFilter) return false;
+    if (typeFilter !== "All") {
+      list = list.filter((t) =>
+        typeFilter === "Income" ? t.amount >= 0 : t.amount < 0
+      );
+    }
 
-      if (!q) return true;
-      const hay = `${t.text} ${t.category} ${t.date}`.toLowerCase();
-      return hay.includes(q);
-    });
+    if (categoryFilter !== "All") {
+      list = list.filter((t) => (t.category || "General") === categoryFilter);
+    }
 
-    list = [...list].sort((a, b) => {
-      if (sort === "dateDesc") return (b.date || "").localeCompare(a.date || "");
-      if (sort === "dateAsc") return (a.date || "").localeCompare(b.date || "");
-      if (sort === "amountDesc") return Math.abs(b.amount) - Math.abs(a.amount);
-      if (sort === "amountAsc") return Math.abs(a.amount) - Math.abs(b.amount);
-      return 0;
-    });
+    if (dayFilter === "today") {
+      list = list.filter((t) => isToday(t.date));
+    } else if (dayFilter === "yesterday") {
+      list = list.filter((t) => isYesterday(t.date));
+    }
+
+    switch (sortBy) {
+      case "oldest":
+        list.sort((a, b) => new Date(a.date) - new Date(b.date));
+        break;
+      case "amount-high":
+        list.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
+        break;
+      case "amount-low":
+        list.sort((a, b) => Math.abs(a.amount) - Math.abs(b.amount));
+        break;
+      case "newest":
+      default:
+        list.sort((a, b) => new Date(b.date) - new Date(a.date));
+        break;
+    }
 
     return list;
-  }, [transactions, activeDate, query, typeFilter, categoryFilter, sort]);
+  }, [transactions, search, typeFilter, categoryFilter, sortBy, dayFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
-  const safePage = Math.min(page, totalPages);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 640);
 
-  const pageRows = useMemo(() => {
-    const start = (safePage - 1) * pageSize;
-    return filteredRows.slice(start, start + pageSize);
-  }, [filteredRows, safePage, pageSize]);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 640);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
-  const hasRows = filteredRows.length > 0;
+  const itemsPerPage = isMobile ? itemsPerPageMobile : itemsPerPageDesktop;
+  const totalPages = Math.max(1, Math.ceil(filteredList.length / itemsPerPage));
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, typeFilter, categoryFilter, sortBy, dayFilter]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const pagedTransactions = useMemo(() => {
+    const start = (page - 1) * itemsPerPage;
+    return filteredList.slice(start, start + itemsPerPage);
+  }, [filteredList, page, itemsPerPage]);
+
+  const startItem = filteredList.length === 0 ? 0 : (page - 1) * itemsPerPage + 1;
+  const endItem = Math.min(page * itemsPerPage, filteredList.length);
 
   return (
-    <section className={`history-panel ${visible ? "visible" : ""}`} aria-label="History sheet">
+    <section className={`history-panel ${visible ? "visible" : ""}`}>
       <div className="history-header">
         <div>
-          <h3>History</h3>
-          <div className="muted">
-            Showing <b>{activeDate}</b> — {filteredRows.length} item(s)
-          </div>
+          <h2 className="panel-title">Transaction History</h2>
+          <p className="panel-subtitle">
+            Showing {startItem}-{endItem} of {filteredList.length}
+          </p>
         </div>
       </div>
 
-      {/* Day selector */}
-      <div className="day-controls" aria-label="Day controls">
+      <div className="day-controls">
         <button
-          className={dayMode === "today" ? "chip active" : "chip"}
-          onClick={() => setDayMode("today")}
           type="button"
+          className={`chip ${dayFilter === "all" ? "active" : ""}`}
+          onClick={() => setDayFilter("all")}
+        >
+          All
+        </button>
+        <button
+          type="button"
+          className={`chip ${dayFilter === "today" ? "active" : ""}`}
+          onClick={() => setDayFilter("today")}
         >
           Today
         </button>
         <button
-          className={dayMode === "yesterday" ? "chip active" : "chip"}
-          onClick={() => setDayMode("yesterday")}
           type="button"
+          className={`chip ${dayFilter === "yesterday" ? "active" : ""}`}
+          onClick={() => setDayFilter("yesterday")}
         >
           Yesterday
         </button>
-        <button
-          className={dayMode === "pick" ? "chip active" : "chip"}
-          onClick={() => setDayMode("pick")}
-          type="button"
-        >
-          Pick date
-        </button>
-
-        {dayMode === "pick" && (
-          <input
-            type="date"
-            value={pickedDate}
-            onChange={(e) => setPickedDate(e.target.value)}
-            aria-label="Pick a date"
-          />
-        )}
       </div>
 
-      {/* Filters */}
       <div className="sheet-controls">
         <div className="control-inline">
-          <label className="muted" htmlFor="search">Search</label>
+          <label htmlFor="search">Search</label>
           <input
             id="search"
             type="text"
-            placeholder="Search description, category…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search description, category, date..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
 
         <div className="control-inline">
-          <label className="muted" htmlFor="typeFilter">Type</label>
-          <select id="typeFilter" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-            <option>All</option>
-            <option>Income</option>
-            <option>Expense</option>
-          </select>
-        </div>
-
-        <div className="control-inline">
-          <label className="muted" htmlFor="catFilter">Category</label>
-          <select id="catFilter" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-            {categories.map((c) => <option key={c}>{c}</option>)}
-          </select>
-        </div>
-
-        <div className="control-inline">
-          <label className="muted" htmlFor="sort">Sort</label>
-          <select id="sort" value={sort} onChange={(e) => setSort(e.target.value)}>
-            <option value="dateDesc">Date (new → old)</option>
-            <option value="dateAsc">Date (old → new)</option>
-            <option value="amountDesc">Amount (high → low)</option>
-            <option value="amountAsc">Amount (low → high)</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Pagination controls (no long scrolling) */}
-      <div className="pager" aria-label="Pagination controls">
-        <div className="pager-left">
-          <span className="muted">Rows per page</span>
-          <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
-            <option value={10}>10</option>
-            <option value={20}>20</option>
-            <option value={50}>50</option>
-          </select>
-        </div>
-
-        <div className="pager-right">
-          <button className="ghost" onClick={() => setPage(1)} disabled={safePage === 1}>
-            ⏮
-          </button>
-          <button className="ghost" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage === 1}>
-            Prev
-          </button>
-
-          <span className="muted">
-            Page <b>{safePage}</b> of <b>{totalPages}</b>
-          </span>
-
-          <button
-            className="ghost"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={safePage === totalPages}
+          <label htmlFor="typeFilter">Type</label>
+          <select
+            id="typeFilter"
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
           >
-            Next
-          </button>
-          <button className="ghost" onClick={() => setPage(totalPages)} disabled={safePage === totalPages}>
-            ⏭
-          </button>
+            <option value="All">All</option>
+            <option value="Income">Income</option>
+            <option value="Expense">Expense</option>
+          </select>
+        </div>
+
+        <div className="control-inline">
+          <label htmlFor="categoryFilter">Category</label>
+          <select
+            id="categoryFilter"
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+          >
+            <option value="All">All</option>
+            {categories.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="control-inline">
+          <label htmlFor="sortBy">Sort</label>
+          <select
+            id="sortBy"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="amount-high">Highest amount</option>
+            <option value="amount-low">Lowest amount</option>
+          </select>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="sheet-wrap" role="region" aria-label="Transactions table">
-        {!hasRows ? (
-          <div className="empty">No transactions for this day.</div>
-        ) : (
-          <table className="sheet">
-            <thead>
-              <tr>
-                <th className="col-time">Date</th>
-                <th className="col-desc">Description</th>
-                <th className="col-cat">Category</th>
-                <th className="col-type">Type</th>
-                <th className="col-amt">Amount</th>
-                <th className="col-act"> </th>
-              </tr>
-            </thead>
-            <tbody>
-              {pageRows.map((t) => {
-                const ttype = typeOf(t.amount);
-                const amtClass = t.amount >= 0 ? "pos" : "neg";
-                return (
-                  <tr key={t.id}>
-                    <td className="col-time">{t.date}</td>
-                    <td className="col-desc" title={t.text}>{t.text}</td>
-                    <td className="col-cat"><span className="pill">{t.category}</span></td>
-                    <td className="col-type">{ttype}</td>
-                    <td className={`col-amt ${amtClass}`}>{formatCurrency(t.amount)}</td>
-                    <td className="col-act">
-                      <button
-                        className="icon-btn"
-                        aria-label={`Delete ${t.text}`}
-                        title="Delete"
-                        onClick={() => onDelete(t.id)}
-                      >
-                        ✖
-                      </button>
-                    </td>
+      {!pagedTransactions.length ? (
+        <div className="empty-state">
+          <div className="empty-icon">🧾</div>
+          <div className="empty-title">No transactions found</div>
+          <div className="empty-text">
+            Try changing your filters or add a new transaction.
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="desktop-history">
+            <div className="sheet-wrap">
+              <table className="sheet">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Category</th>
+                    <th className="col-amt">Amount</th>
+                    <th className="col-act">Action</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
+                </thead>
+                <tbody>
+                  {pagedTransactions.map((t) => (
+                    <tr key={t.id}>
+                      <td>{formatDate(t.date)}</td>
+                      <td className="col-desc" title={t.text}>
+                        {t.text}
+                      </td>
+                      <td>
+                        <span className="pill">{t.category || "General"}</span>
+                      </td>
+                      <td className={`col-amt ${t.amount >= 0 ? "pos" : "neg"}`}>
+                        {t.amount >= 0 ? "+" : "-"}
+                        {formatCurrency(Math.abs(t.amount))}
+                      </td>
+                      <td className="col-act">
+                        <button
+                          className="icon-btn delete-btn"
+                          onClick={() => onDelete(t.id)}
+                          aria-label={`Delete ${t.text}`}
+                          type="button"
+                          title="Delete transaction"
+                        >
+                          ✕
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="mobile-history-cards">
+            {pagedTransactions.map((t) => (
+              <article key={t.id} className="tx-card">
+                <div className="tx-card-top">
+                  <div className="tx-main">
+                    <h3 className="tx-title">{t.text}</h3>
+                    <p className="tx-date">{formatDate(t.date)}</p>
+                  </div>
+
+                  <div className={`tx-amount ${t.amount >= 0 ? "pos" : "neg"}`}>
+                    {t.amount >= 0 ? "+" : "-"}
+                    {formatCurrency(Math.abs(t.amount))}
+                  </div>
+                </div>
+
+                <div className="tx-meta">
+                  <span className="pill">{t.category || "General"}</span>
+                  <span className={`type-pill ${t.amount >= 0 ? "income" : "expense"}`}>
+                    {t.amount >= 0 ? "Income" : "Expense"}
+                  </span>
+                </div>
+
+                <div className="tx-actions">
+                  <button
+                    className="delete-mobile-btn"
+                    onClick={() => onDelete(t.id)}
+                    type="button"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="pager">
+            <div className="pager-left">
+              <span className="pager-text">
+                Page {page} of {totalPages}
+              </span>
+            </div>
+
+            <div className="pager-right">
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                Previous
+              </button>
+
+              <button
+                type="button"
+                className="primary"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </section>
   );
 }

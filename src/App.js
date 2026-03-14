@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import "./App.css";
 
 import Header from "./components/Header";
@@ -17,14 +17,44 @@ function toSignedAmount(type, amount) {
 }
 
 export default function App() {
-  const [transactions, setTransactions] = useState(() => loadJSON("transactions", []));
-  const [filterMonth, setFilterMonth] = useState(() => localStorage.getItem("filterMonth") || "");
-  const [darkMode, setDarkMode] = useState(() => localStorage.getItem("darkMode") === "true");
-
+  const [transactions, setTransactions] = useState(() =>
+    loadJSON("transactions", [])
+  );
+  const [filterMonth, setFilterMonth] = useState(
+    () => localStorage.getItem("filterMonth") || ""
+  );
+  const [darkMode, setDarkMode] = useState(
+    () => localStorage.getItem("darkMode") === "true"
+  );
   const [showHistory, setShowHistory] = useState(true);
 
-  // Persist
-  useEffect(() => saveJSON("transactions", transactions), [transactions]);
+  const [toast, setToast] = useState({
+    show: false,
+    message: "",
+    type: "success",
+  });
+
+  const notify = useCallback((message, type = "success") => {
+    setToast({
+      show: true,
+      message,
+      type,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!toast.show) return;
+
+    const timer = setTimeout(() => {
+      setToast((prev) => ({ ...prev, show: false }));
+    }, 2600);
+
+    return () => clearTimeout(timer);
+  }, [toast.show]);
+
+  useEffect(() => {
+    saveJSON("transactions", transactions);
+  }, [transactions]);
 
   useEffect(() => {
     localStorage.setItem("filterMonth", filterMonth);
@@ -36,32 +66,61 @@ export default function App() {
   }, [darkMode]);
 
   const filteredTransactions = useMemo(() => {
-    if (!filterMonth) return transactions;
-    return transactions.filter((t) => isInMonth(t.date, filterMonth));
+    const base = !filterMonth
+      ? transactions
+      : transactions.filter((t) => isInMonth(t.date, filterMonth));
+
+    return [...base].sort((a, b) => {
+      const aTime = new Date(a.date).getTime();
+      const bTime = new Date(b.date).getTime();
+      return bTime - aTime;
+    });
   }, [transactions, filterMonth]);
 
   const { income, expenses, balance } = useMemo(() => {
     let inc = 0;
     let exp = 0;
+
     for (const t of filteredTransactions) {
       if (t.amount >= 0) inc += t.amount;
       else exp += t.amount;
     }
-    return { income: inc, expenses: exp, balance: inc + exp };
+
+    return {
+      income: inc,
+      expenses: exp,
+      balance: inc + exp,
+    };
   }, [filteredTransactions]);
 
   const addTransaction = ({ text, amount, type, category, date }) => {
     const signedAmount = toSignedAmount(type, amount);
 
+    if (!text?.trim()) {
+      notify("Please enter a description.", "error");
+      return;
+    }
+
+    if (!date) {
+      notify("Please select a date.", "error");
+      return;
+    }
+
+    if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+      notify("Please enter a valid amount.", "error");
+      return;
+    }
+
     const tx = {
-      id: (crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`),
-      text,
+      id: crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`,
+      text: text.trim(),
       amount: signedAmount,
-      category,
+      category: category?.trim() || "General",
       date,
     };
 
     setTransactions((prev) => [tx, ...prev]);
+    notify(`${type} added successfully.`, "success");
   };
 
   const deleteTransaction = (id) => {
@@ -70,39 +129,68 @@ export default function App() {
     if (!ok) return;
 
     setTransactions((prev) => prev.filter((t) => t.id !== id));
+    notify("Transaction deleted.", "info");
   };
 
   return (
-    <div className="app-container">
-      <Header
-        filterMonth={filterMonth}
-        setFilterMonth={setFilterMonth}
-        darkMode={darkMode}
-        setDarkMode={setDarkMode}
-      />
+    <div className="app-shell">
+      <div className="app-container">
+        <Header
+          filterMonth={filterMonth}
+          setFilterMonth={setFilterMonth}
+          darkMode={darkMode}
+          setDarkMode={setDarkMode}
+        />
 
-      <SummaryCards
-        income={income}
-        expensesAbs={Math.abs(expenses)}
-        balance={balance}
-      />
+        <SummaryCards
+          income={income}
+          expensesAbs={Math.abs(expenses)}
+          balance={balance}
+        />
 
-      <TransactionForm onAdd={addTransaction} />
+        <TransactionForm onAdd={addTransaction} />
 
-      <div className="toggle-panels">
-        <button className="ghost" onClick={() => setShowHistory((v) => !v)}>
-          {showHistory ? "Hide History" : "Show History"}
-        </button>
+        <div className="toggle-panels">
+          <button
+            className="ghost mobile-full-btn"
+            onClick={() => setShowHistory((v) => !v)}
+            type="button"
+          >
+            {showHistory ? "Hide History" : "Show History"}
+          </button>
+        </div>
+
+        <HistoryPanel
+          visible={showHistory}
+          transactions={filteredTransactions}
+          onDelete={deleteTransaction}
+        />
+
+        <BackupControls
+          transactions={transactions}
+          setTransactions={setTransactions}
+          onNotify={notify}
+        />
       </div>
 
-      {/* ✅ Backup controls are now USED here */}
-      <BackupControls transactions={transactions} setTransactions={setTransactions} />
-
-      <HistoryPanel
-        visible={showHistory}
-        transactions={filteredTransactions}
-        onDelete={deleteTransaction}
-      />
+      <div
+        className={`toast-stack ${toast.show ? "show" : ""}`}
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <div className={`toast toast-${toast.type}`}>
+          <span className="toast-dot" />
+          <span className="toast-message">{toast.message}</span>
+          <button
+            className="toast-close"
+            onClick={() => setToast((prev) => ({ ...prev, show: false }))}
+            aria-label="Close notification"
+            type="button"
+          >
+            ×
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
