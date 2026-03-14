@@ -47,13 +47,14 @@ function saveCustomCategories(categories) {
 }
 
 export default function TransactionForm({ onAdd }) {
+  const [showFormModal, setShowFormModal] = useState(false);
+
   const [text, setText] = useState("");
   const [amount, setAmount] = useState("");
   const [type, setType] = useState("Expense");
   const [category, setCategory] = useState("Food");
   const [date, setDate] = useState(getTodayValue());
   const [error, setError] = useState("");
-  const [expanded, setExpanded] = useState(false);
 
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [customCategoryInput, setCustomCategoryInput] = useState("");
@@ -87,6 +88,16 @@ export default function TransactionForm({ onAdd }) {
     setShowCategoryModal(false);
   };
 
+  const handleOpenForm = () => {
+    setShowFormModal(true);
+  };
+
+  const handleCloseForm = () => {
+    setShowFormModal(false);
+    setError("");
+    setShowCategoryModal(false);
+  };
+
   const handleTypeChange = (e) => {
     const nextType = e.target.value;
     const nextOptions =
@@ -101,9 +112,10 @@ export default function TransactionForm({ onAdd }) {
 
   const handleCategoryChange = (e) => {
     const nextCategory = e.target.value;
+
     setCategory(nextCategory);
-    setSelectedCustomCategory("");
     setCustomCategoryInput("");
+    setSelectedCustomCategory("");
 
     if (nextCategory === "Other") {
       setShowCategoryModal(true);
@@ -141,7 +153,7 @@ export default function TransactionForm({ onAdd }) {
     setError("");
   };
 
-  const handleCloseModal = () => {
+  const handleCloseCategoryModal = () => {
     if (!selectedCustomCategory.trim()) {
       setCategory(categoryOptions[0]);
     }
@@ -189,110 +201,146 @@ export default function TransactionForm({ onAdd }) {
     });
 
     resetForm(type);
-    setExpanded(false);
+    setShowFormModal(false);
   };
 
   return (
     <>
-      <section className={`transaction-form compact-form ${expanded ? "open" : ""}`}>
-        <div className="compact-form-header">
+      <section className="transaction-launcher-card">
+        <div className="transaction-launcher-content">
           <div>
-            <h2 className="compact-form-title">Add Transaction</h2>
-            <p className="compact-form-subtitle">
-              Quickly add income or expenses
+            <div className="transaction-launcher-kicker">Quick entry</div>
+            <h2 className="transaction-launcher-title">Add Transaction</h2>
+            <p className="transaction-launcher-subtitle">
+              Open a clean popup form when you want to add income or expenses.
             </p>
           </div>
 
           <button
             type="button"
-            className={`compact-toggle-btn ${expanded ? "active" : ""}`}
-            onClick={() => setExpanded((prev) => !prev)}
-            aria-expanded={expanded}
+            className="primary transaction-launcher-btn"
+            onClick={handleOpenForm}
           >
-            {expanded ? "Close" : "Open"}
+            Add Transaction
           </button>
-        </div>
-
-        <div className={`compact-form-body ${expanded ? "visible" : ""}`}>
-          <form onSubmit={handleSubmit}>
-            <div className="form-grid compact-grid">
-              <div className="field field-wide">
-                <label htmlFor="text">Description</label>
-                <input
-                  id="text"
-                  type="text"
-                  placeholder="e.g. Lunch, fare, salary"
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                />
-              </div>
-
-              <div className="field">
-                <label htmlFor="amount">Amount</label>
-                <input
-                  id="amount"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                />
-              </div>
-
-              <div className="field">
-                <label htmlFor="type">Type</label>
-                <select id="type" value={type} onChange={handleTypeChange}>
-                  <option value="Expense">Expense</option>
-                  <option value="Income">Income</option>
-                </select>
-              </div>
-
-              <div className="field">
-                <label htmlFor="category">Category</label>
-                <select
-                  id="category"
-                  value={category}
-                  onChange={handleCategoryChange}
-                >
-                  {categoryOptions.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="field">
-                <label htmlFor="date">Date</label>
-                <input
-                  id="date"
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                />
-              </div>
-
-              <div className="field-actions compact-actions">
-                <button type="submit" className="primary">
-                  Save Transaction
-                </button>
-              </div>
-            </div>
-
-            {category === "Other" && selectedCustomCategory ? (
-              <p className="selected-custom-category">
-                Custom category: <strong>{selectedCustomCategory}</strong>
-              </p>
-            ) : null}
-
-            {error ? <p className="error">{error}</p> : null}
-          </form>
         </div>
       </section>
 
+      {showFormModal && (
+        <div className="modal-backdrop" onClick={handleCloseForm}>
+          <div
+            className="entry-modal"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="entry-modal-title"
+          >
+            <div className="entry-modal-header">
+              <div>
+                <div className="entry-modal-kicker">Quick entry</div>
+                <h3 id="entry-modal-title" className="entry-modal-title">
+                  Add Transaction
+                </h3>
+                <p className="entry-modal-subtitle">
+                  Fill in the details below and save it to your history.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={handleCloseForm}
+                aria-label="Close add transaction modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="entry-modal-body">
+              <form onSubmit={handleSubmit}>
+                <div className="form-grid modal-form-grid">
+                  <div className="field field-wide">
+                    <label htmlFor="text">Description</label>
+                    <input
+                      id="text"
+                      type="text"
+                      placeholder="e.g. Lunch, fare, salary"
+                      value={text}
+                      onChange={(e) => setText(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="amount">Amount</label>
+                    <input
+                      id="amount"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="type">Type</label>
+                    <select id="type" value={type} onChange={handleTypeChange}>
+                      <option value="Expense">Expense</option>
+                      <option value="Income">Income</option>
+                    </select>
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="category">Category</label>
+                    <select
+                      id="category"
+                      value={category}
+                      onChange={handleCategoryChange}
+                    >
+                      {categoryOptions.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="date">Date</label>
+                    <input
+                      id="date"
+                      type="date"
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="field-actions modal-form-actions">
+                    <button type="submit" className="primary">
+                      Save Transaction
+                    </button>
+                  </div>
+                </div>
+
+                {category === "Other" && selectedCustomCategory ? (
+                  <p className="selected-custom-category">
+                    Custom category: <strong>{selectedCustomCategory}</strong>
+                  </p>
+                ) : null}
+
+                {error ? <p className="error">{error}</p> : null}
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showCategoryModal && (
-        <div className="modal-backdrop" onClick={handleCloseModal}>
+        <div
+          className="modal-backdrop modal-layer-top"
+          onClick={handleCloseCategoryModal}
+        >
           <div
             className="category-modal"
             onClick={(e) => e.stopPropagation()}
@@ -306,14 +354,14 @@ export default function TransactionForm({ onAdd }) {
                   Custom Category
                 </h3>
                 <p className="category-modal-subtitle">
-                  Type a new category or choose one you saved before.
+                  Type a new category or choose one you already saved.
                 </p>
               </div>
 
               <button
                 type="button"
                 className="icon-btn"
-                onClick={handleCloseModal}
+                onClick={handleCloseCategoryModal}
                 aria-label="Close custom category modal"
               >
                 ✕
@@ -358,7 +406,11 @@ export default function TransactionForm({ onAdd }) {
             </div>
 
             <div className="category-modal-actions">
-              <button type="button" className="ghost" onClick={handleCloseModal}>
+              <button
+                type="button"
+                className="ghost"
+                onClick={handleCloseCategoryModal}
+              >
                 Cancel
               </button>
               <button
